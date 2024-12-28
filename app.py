@@ -5,7 +5,7 @@ app = Flask(__name__)
 class KrishiMitra:
     def __init__(self):
         self.crop_info = {
-           'wheat': {
+            'wheat': {
                 'soil_type': 'loamy or sandy',
                 'weather': 'temperate climate with moderate rainfall',
                 'temperature': '15-20°C',
@@ -90,6 +90,7 @@ class KrishiMitra:
                 'best_time': 'April to June for planting.',
             }
         }
+
         self.state_specific_info = {
             'andhra pradesh': {'suitable_crops': ['rice', 'cotton', 'sugarcane'], 'conditions': 'Tropical climate, suitable for a variety of crops.'},
             'arunachal pradesh': {'suitable_crops': ['rice', 'millets'], 'conditions': 'Hilly terrain with moderate rainfall, best for rice and millets.'},
@@ -122,48 +123,38 @@ class KrishiMitra:
         }
 
     def get_crop_info(self, crop):
-        crop = crop.lower()
-        return self.crop_info.get(crop)
+        return self.crop_info.get(crop.lower())
 
     def get_state_info(self, state):
-        state = state.lower()
-        return self.state_specific_info.get(state, {"suitable_crops": [], "conditions": "General crop info available."})
+        return self.state_specific_info.get(state.lower(), {"suitable_crops": [], "conditions": "General crop info available."})
 
 advisor = KrishiMitra()
 
-@app.route("/get_crop_info", methods=["GET"])
-def get_crop_info():
-    crop = request.args.get("crop")
-    if not crop:
-        return jsonify({"error": "Crop parameter is required"}), 400
+@app.route('/get-crop-info', methods=['POST'])
+def crop_info():
+    data = request.json
+    crop = data.get('crop')
+    state = data.get('state')
+
+    if not crop or not state:
+        return jsonify({'error': 'Please provide both crop and state.'}), 400
+
     crop_info = advisor.get_crop_info(crop)
-    if crop_info:
-        return jsonify(crop_info)
-    else:
-        return jsonify({"error": "No information available for the specified crop"}), 404
-
-@app.route("/get_state_info", methods=["GET"])
-def get_state_info():
-    state = request.args.get("state")
-    crop = request.args.get("crop")
-    if not state:
-        return jsonify({"error": "State parameter is required"}), 400
-
     state_info = advisor.get_state_info(state)
+
+    if not crop_info:
+        return jsonify({'error': f'No information available for crop: {crop}.'}), 404
+
+    can_grow = crop.lower() in [c.lower() for c in state_info['suitable_crops']]
+    grow_message = "is suitable for" if can_grow else "may not be suitable for"
+
     response = {
-        "state_conditions": state_info["conditions"],
-        "suitable_crops": state_info["suitable_crops"],
+        'crop_info': crop_info,
+        'state_info': state_info,
+        'message': f"This crop {grow_message} {state.capitalize()}."
     }
-
-    if crop:
-        crop = crop.lower()
-        can_grow = crop in [c.lower() for c in state_info["suitable_crops"]]
-        response["can_grow"] = can_grow
-        response["grow_message"] = (
-            "is suitable for" if can_grow else "may not be suitable for"
-        )
-
     return jsonify(response)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
+
